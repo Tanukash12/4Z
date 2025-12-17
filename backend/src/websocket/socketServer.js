@@ -1,26 +1,27 @@
 import { WebSocketServer } from "ws";
+
 import MatchmakingService from "../services/MatchmakingService.js";
 import GameService from "../services/GameService.js";
 import BotService from "../services/BotService.js";
 import ReconnectService from "../services/ReconnectService.js";
 
-
+import Game from "../models/Game.js";
+import Player from "../models/Player.js";
 
 /**
  * In-memory stores
  */
-const activeGames = new Map();        // gameId -> game
-const socketMeta = new Map();         // ws -> { gameId, playerId }
+const activeGames = new Map();   // gameId -> game
+const socketMeta = new Map();    // ws -> { gameId, playerId }
 
 /**
- * Safe send helper
+ * Safe send
  */
 const send = (ws, data) => {
-  if (ws?.readyState === ws.OPEN) {
+  if (ws && ws.readyState === ws.OPEN) {
     ws.send(JSON.stringify(data));
   }
 };
-
 
 /**
  * WebSocket init
@@ -32,14 +33,14 @@ export default function initWebSocket(server) {
   wss.on("connection", (ws) => {
     console.log("WebSocket connected");
 
-    ws.on("message", (msg) => {
+    // ⚠️ MUST be async now
+    ws.on("message", async (msg) => {
       const data = JSON.parse(msg);
 
-      // ---------------- JOIN GAME ----------------
+      /* ================= JOIN GAME ================= */
       if (data.type === "join_game") {
         const game = matchmaking.join(ws, data.username);
-
-        if (!game) return; // waiting state
+        if (!game) return;
 
         activeGames.set(game.id, game);
 
@@ -60,7 +61,7 @@ export default function initWebSocket(server) {
         });
       }
 
-      // ---------------- MAKE MOVE ----------------
+      /* ================= MAKE MOVE ================= */
       if (data.type === "make_move") {
         const meta = socketMeta.get(ws);
         if (!meta) return;
@@ -72,13 +73,23 @@ export default function initWebSocket(server) {
           return send(ws, { type: "error", message: "Not your turn" });
         }
 
-        // -------- HUMAN MOVE --------
+        /* ---------- HUMAN MOVE ---------- */
         try {
           GameService.dropDisc(game.board, data.column, meta.playerId);
 
-          // Human win
+          /* 🏆 HUMAN WIN */
           if (GameService.checkWin(game.board, meta.playerId)) {
             game.status = "FINISHED";
+
+            await Game.saveResult({
+              id: game.id,
+              player1Id: game.players[0].id,
+              player2Id: game.players[1].id,
+              board: game.board,
+              winnerId: meta.playerId,
+            });
+
+            await Player.incrementWin(meta.playerId);
 
             game.players.forEach(p =>
               p.ws && send(p.ws, {
@@ -87,12 +98,22 @@ export default function initWebSocket(server) {
                 board: game.board,
               })
             );
+
+            activeGames.delete(game.id);
             return;
           }
 
-          // Draw
+          /* 🤝 DRAW */
           if (GameService.checkDraw(game.board)) {
             game.status = "FINISHED";
+
+            await Game.saveResult({
+              id: game.id,
+              player1Id: game.players[0].id,
+              player2Id: game.players[1].id,
+              board: game.board,
+              winnerId: null,
+            });
 
             game.players.forEach(p =>
               p.ws && send(p.ws, {
@@ -101,14 +122,15 @@ export default function initWebSocket(server) {
                 board: game.board,
               })
             );
+
+            activeGames.delete(game.id);
             return;
           }
 
-          // Switch turn
+          /* SWITCH TURN */
           const nextPlayer = game.players.find(p => p.id !== meta.playerId);
           game.currentTurn = nextPlayer.id;
 
-          // Broadcast human move
           game.players.forEach(p =>
             p.ws && send(p.ws, {
               type: "game_update",
@@ -117,20 +139,30 @@ export default function initWebSocket(server) {
             })
           );
 
-          // -------- BOT MOVE (if applicable) --------
+          /* ---------- BOT MOVE ---------- */
           if (nextPlayer.isBot) {
-            const botColumn = BotService.getMove(
+            const botCol = BotService.getMove(
               game,
               nextPlayer.id,
               meta.playerId
             );
 
-            if (botColumn !== null) {
-              GameService.dropDisc(game.board, botColumn, nextPlayer.id);
+            if (botCol !== null) {
+              GameService.dropDisc(game.board, botCol, nextPlayer.id);
 
-              // Bot win
+              /* 🤖 BOT WIN */
               if (GameService.checkWin(game.board, nextPlayer.id)) {
                 game.status = "FINISHED";
+
+                await Game.saveResult({
+                  id: game.id,
+                  player1Id: game.players[0].id,
+                  player2Id: game.players[1].id,
+                  board: game.board,
+                  winnerId: nextPlayer.id,
+                });
+
+                await Player.incrementWin(nextPlayer.id);
 
                 game.players.forEach(p =>
                   p.ws && send(p.ws, {
@@ -139,13 +171,13 @@ export default function initWebSocket(server) {
                     board: game.board,
                   })
                 );
+
+                activeGames.delete(game.id);
                 return;
               }
 
-              // Switch back to human
               game.currentTurn = meta.playerId;
 
-              // Broadcast bot move
               game.players.forEach(p =>
                 p.ws && send(p.ws, {
                   type: "game_update",
@@ -161,8 +193,7 @@ export default function initWebSocket(server) {
         }
       }
 
-
-      // ---------------- RECONNECT ----------------
+      /* ================= RECONNECT ================= */
       if (data.type === "reconnect") {
         const { gameId, playerId } = data;
         const game = activeGames.get(gameId);
@@ -188,12 +219,11 @@ export default function initWebSocket(server) {
             send(p.ws, { type: "opponent_reconnected" });
           }
         });
-}
-
+      }
     });
 
-    // ---------------- DISCONNECT ----------------
-    ws.on("close", () => {
+    /* ================= DISCONNECT ================= */
+    ws.on("close", async () => {
       const meta = socketMeta.get(ws);
       if (!meta) return;
 
@@ -205,10 +235,21 @@ export default function initWebSocket(server) {
 
       player.disconnected = true;
 
-      ReconnectService.markDisconnected(player.id, () => {
-        // forfeit after 30s
+      ReconnectService.markDisconnected(player.id, async () => {
         game.status = "FINISHED";
         const winner = game.players.find(p => p.id !== player.id);
+
+        await Game.saveResult({
+          id: game.id,
+          player1Id: game.players[0].id,
+          player2Id: game.players[1].id,
+          board: game.board,
+          winnerId: winner?.id ?? null,
+        });
+
+        if (winner?.id) {
+          await Player.incrementWin(winner.id);
+        }
 
         game.players.forEach(p =>
           p.ws && send(p.ws, {
@@ -232,6 +273,5 @@ export default function initWebSocket(server) {
 
       socketMeta.delete(ws);
     });
-
   });
 }

@@ -30,7 +30,16 @@ class Game {
       [gameId, winnerId]
     );
   }
+
+  // (for persistence on game over)
+  static async saveResult({ id, player1Id, player2Id, board, winnerId }) {
+    await pool.query(
+      `INSERT INTO games (id, player1_id, player2_id, board, status, winner_id, end_time)
+       VALUES ($1, $2, $3, $4, 'FINISHED', $5, NOW())
+       ON CONFLICT (id) DO NOTHING`,
+      [id, player1Id, player2Id, board, winnerId]
+    );
+  }
 }
 
-
-export default { Game };
+export default Game;

@@ -66,4 +66,4 @@ class GameService {
   }
 }
 
-export default { GameService };
+export default  GameService ;

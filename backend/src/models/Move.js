@@ -10,4 +10,4 @@ class Move {
   }
 }
 
-export default { Move };
+export default  Move ;
