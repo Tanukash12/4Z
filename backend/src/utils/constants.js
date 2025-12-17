@@ -7,6 +7,7 @@ export const GAME_STATUS = {
 };
 
 export const MATCH_TIMEOUT = 10000;
+export const RECONNECT_TIMEOUT = 30000;
 
 export const BOT = {
   NAME: "ConnectBot",

@@ -2,6 +2,8 @@ import { WebSocketServer } from "ws";
 import MatchmakingService from "../services/MatchmakingService.js";
 import GameService from "../services/GameService.js";
 import BotService from "../services/BotService.js";
+import ReconnectService from "../services/ReconnectService.js";
+
 
 
 /**
@@ -158,6 +160,36 @@ export default function initWebSocket(server) {
           send(ws, { type: "error", message: err.message });
         }
       }
+
+
+      // ---------------- RECONNECT ----------------
+      if (data.type === "reconnect") {
+        const { gameId, playerId } = data;
+        const game = activeGames.get(gameId);
+        if (!game) return;
+
+        const player = game.players.find(p => p.id === playerId);
+        if (!player) return;
+
+        player.ws = ws;
+        player.disconnected = false;
+
+        socketMeta.set(ws, { gameId, playerId });
+        ReconnectService.reconnected(playerId);
+
+        send(ws, {
+          type: "reconnected",
+          board: game.board,
+          currentTurn: game.currentTurn,
+        });
+
+        game.players.forEach(p => {
+          if (p.ws && p.id !== playerId) {
+            send(p.ws, { type: "opponent_reconnected" });
+          }
+        });
+}
+
     });
 
     // ---------------- DISCONNECT ----------------
@@ -168,16 +200,38 @@ export default function initWebSocket(server) {
       const game = activeGames.get(meta.gameId);
       if (!game) return;
 
+      const player = game.players.find(p => p.id === meta.playerId);
+      if (!player) return;
+
+      player.disconnected = true;
+
+      ReconnectService.markDisconnected(player.id, () => {
+        // forfeit after 30s
+        game.status = "FINISHED";
+        const winner = game.players.find(p => p.id !== player.id);
+
+        game.players.forEach(p =>
+          p.ws && send(p.ws, {
+            type: "game_over",
+            winner: winner?.id ?? null,
+            reason: "forfeit",
+          })
+        );
+
+        activeGames.delete(game.id);
+      });
+
       game.players.forEach(p => {
-        if (p.ws && p.ws !== ws) {
+        if (p.ws && p.id !== player.id) {
           send(p.ws, {
             type: "opponent_disconnected",
-            message: "Opponent disconnected",
+            message: "Opponent disconnected. Waiting 30s…",
           });
         }
       });
 
       socketMeta.delete(ws);
     });
+
   });
 }
