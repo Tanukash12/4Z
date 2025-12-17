@@ -8,8 +8,12 @@ const kafka = new Kafka({
 const producer = kafka.producer();
 
 export async function initProducer() {
-  await producer.connect();
-  console.log("Kafka Producer connected");
+  try {
+    await producer.connect();
+    console.log("Kafka Producer connected");
+  } catch (err) {
+    console.error("Kafka disabled:", err.message);
+  }
 }
 
 export async function emitEvent(type, payload) {
