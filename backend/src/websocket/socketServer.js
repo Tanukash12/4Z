@@ -4,6 +4,7 @@ import MatchmakingService from "../services/MatchmakingService.js";
 import GameService from "../services/GameService.js";
 import BotService from "../services/BotService.js";
 import ReconnectService from "../services/ReconnectService.js";
+import { emitEvent } from "../kafka/producer.js";
 
 import Game from "../models/Game.js";
 import Player from "../models/Player.js";
@@ -44,6 +45,17 @@ export default function initWebSocket(server) {
 
         activeGames.set(game.id, game);
 
+        try {
+           await emitEvent("GAME_STARTED", {
+          gameId: game.id,
+          players: game.players.map(p => p.id),
+        });
+        } catch (e) {
+          console.error("Kafka error:", e.message);
+        }
+       
+
+
         game.players.forEach((p) => {
           if (p.ws) {
             socketMeta.set(p.ws, {
@@ -77,6 +89,17 @@ export default function initWebSocket(server) {
         try {
           GameService.dropDisc(game.board, data.column, meta.playerId);
 
+          try {
+            await emitEvent("MOVE_PLAYED", {
+              gameId: game.id,
+              playerId: meta.playerId,
+              column: data.column,
+            });
+          } catch (e) {
+            console.error("Kafka error:", e.message);
+          }
+
+
           /* 🏆 HUMAN WIN */
           if (GameService.checkWin(game.board, meta.playerId)) {
             game.status = "FINISHED";
@@ -90,6 +113,18 @@ export default function initWebSocket(server) {
             });
 
             await Player.incrementWin(meta.playerId);
+
+            try {
+              await emitEvent("GAME_FINISHED", {
+              gameId: game.id,
+              winnerId: meta.playerId,
+              reason: "win",
+            });
+            } catch (e) {
+              console.error("Kafka error:", e.message);
+            }
+            
+
 
             game.players.forEach(p =>
               p.ws && send(p.ws, {
@@ -114,6 +149,16 @@ export default function initWebSocket(server) {
               board: game.board,
               winnerId: null,
             });
+
+            try {
+              await emitEvent("GAME_FINISHED", {
+                gameId: game.id,
+                winnerId: null,
+                reason: "draw",
+              });
+            } catch (e) {
+              console.error("Kafka error:", e.message);
+            }
 
             game.players.forEach(p =>
               p.ws && send(p.ws, {
@@ -163,6 +208,16 @@ export default function initWebSocket(server) {
                 });
 
                 await Player.incrementWin(nextPlayer.id);
+
+                try {
+                  await emitEvent("GAME_FINISHED", {
+                  gameId: game.id,
+                  winnerId: winner?.id ?? null,
+                  reason: "win",
+                });
+                } catch (e) {
+                  console.error("Kafka error:", e.message);
+                }
 
                 game.players.forEach(p =>
                   p.ws && send(p.ws, {
@@ -250,6 +305,17 @@ export default function initWebSocket(server) {
         if (winner?.id) {
           await Player.incrementWin(winner.id);
         }
+
+        try {
+          await emitEvent("GAME_FINISHED", {
+          gameId: game.id,
+          winnerId: winner?.id ?? null,
+          reason: "forfeit",
+        });
+        } catch (e) {
+          console.error("Kafka error:", e.message);
+        }
+
 
         game.players.forEach(p =>
           p.ws && send(p.ws, {
