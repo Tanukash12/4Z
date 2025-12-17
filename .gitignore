@@ -1,0 +1,7 @@
+node_modules/
+.env
+logs/
+postgres-data/
+kafka-data/
+zookeeper-data/
+.vscode/
