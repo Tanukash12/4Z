@@ -1,0 +1,187 @@
+/* ================= ROOT VARIABLES ================= */
+:root {
+  --bg: #0f172a;
+  --card: #111827;
+  --primary: #6366f1;
+  --secondary: #22c55e;
+  --danger: #ef4444;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --cell-size: 70px;
+}
+
+/* ================= GLOBAL ================= */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+body {
+  background: linear-gradient(135deg, #020617, #020617);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ================= HEADER ================= */
+.header {
+  text-align: center;
+  padding: 2rem;
+}
+
+.header h1 {
+  font-size: 2.5rem;
+  color: var(--primary);
+}
+
+.header p {
+  color: var(--muted);
+}
+
+/* ================= LAYOUT ================= */
+.container {
+  display: grid;
+  gap: 2rem;
+  max-width: 1200px;
+  margin: auto;
+  padding: 1rem;
+}
+
+.join-card,
+.game-card,
+.leaderboard-card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 1.5rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+/* ================= JOIN ================= */
+.join-card {
+  text-align: center;
+}
+
+.join-card input {
+  width: 100%;
+  padding: 0.8rem;
+  border-radius: 10px;
+  border: none;
+  margin-bottom: 1rem;
+}
+
+.join-card button {
+  background: var(--primary);
+  color: white;
+  padding: 0.7rem 1.5rem;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.join-card button:hover {
+  transform: scale(1.05);
+}
+
+.status {
+  margin-top: 1rem;
+  color: var(--muted);
+}
+
+/* ================= BOARD ================= */
+.board {
+  display: grid;
+  grid-template-columns: repeat(7, var(--cell-size));
+  grid-template-rows: repeat(6, var(--cell-size));
+  gap: 8px;
+  justify-content: center;
+}
+
+.cell {
+  width: var(--cell-size);
+  height: var(--cell-size);
+  background: #020617;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s;
+}
+
+.cell:hover {
+  transform: translateY(-4px);
+}
+
+.cell.me {
+  background: var(--primary);
+  animation: drop 0.3s ease;
+}
+
+.cell.opponent {
+  background: var(--secondary);
+  animation: drop 0.3s ease;
+}
+
+@keyframes drop {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ================= GAME INFO ================= */
+.game-info {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.reconnect-btn {
+  margin-top: 0.5rem;
+  background: var(--danger);
+  border: none;
+  padding: 0.5rem 1.2rem;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+}
+
+/* ================= LEADERBOARD ================= */
+.leaderboard-card table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.leaderboard-card th,
+.leaderboard-card td {
+  padding: 0.7rem;
+  border-bottom: 1px solid #1f2933;
+  text-align: left;
+}
+
+/* ================= FOOTER ================= */
+.footer {
+  text-align: center;
+  padding: 1.5rem;
+  color: var(--muted);
+}
+
+/* ================= UTILS ================= */
+.hidden {
+  display: none;
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 768px) {
+  :root {
+    --cell-size: 50px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --cell-size: 42px;
+  }
+}
