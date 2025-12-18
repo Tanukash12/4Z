@@ -40,7 +40,7 @@ export default function initWebSocket(server) {
 
       /* ================= JOIN GAME ================= */
       if (data.type === "join_game") {
-        const game = matchmaking.join(ws, data.username);
+        const game = await matchmaking.join(ws, data.username);
         if (!game) return;
 
         activeGames.set(game.id, game);
@@ -66,6 +66,7 @@ export default function initWebSocket(server) {
             send(p.ws, {
               type: "game_start",
               gameId: game.id,
+              playerId: p.id, 
               opponent: game.players.find(x => x.id !== p.id).username,
               yourTurn: p.id === game.currentTurn,
             });

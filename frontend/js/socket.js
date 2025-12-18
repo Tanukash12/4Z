@@ -31,10 +31,15 @@ function handleSocketEvent(data) {
 
     case "game_start":
       GameState.gameId = data.gameId;
+      GameState.playerId = data.playerId;
       GameState.opponent = data.opponent;
       GameState.isMyTurn = data.yourTurn;
       GameState.board = Array.from({ length: 6 }, () => Array(7).fill(null));
-      showStatus(`Game started vs ${data.opponent}`);
+      showStatus(
+          `You (${GameState.username}) vs ${data.opponent} — ${
+            data.yourTurn ? "Your turn" : "Opponent's turn"
+          }`
+        );
       renderBoard();
       break;
 
@@ -47,8 +52,10 @@ function handleSocketEvent(data) {
 
     case "game_over":
       GameState.board = data.board || GameState.board;
+      GameState.isMyTurn = false; 
       renderBoard();
       showGameOver(data.winner, data.reason);
+      document.getElementById("board").style.pointerEvents = "none";
       break;
 
     case "opponent_disconnected":

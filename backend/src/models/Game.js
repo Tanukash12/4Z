@@ -6,7 +6,7 @@ class Game {
       `INSERT INTO games (player1_id, player2_id, board, status)
        VALUES ($1, $2, $3, 'ACTIVE')
        RETURNING *`,
-      [player1Id, player2Id, board]
+      [player1Id, player2Id, JSON.stringify(board)]
     );
     return res.rows[0];
   }
@@ -16,7 +16,7 @@ class Game {
       `UPDATE games
        SET board = $2, current_turn = $3
        WHERE id = $1`,
-      [gameId, board, currentTurn]
+      [gameId, JSON.stringify(board), currentTurn]
     );
   }
 
@@ -37,7 +37,7 @@ class Game {
       `INSERT INTO games (id, player1_id, player2_id, board, status, winner_id, end_time)
        VALUES ($1, $2, $3, $4, 'FINISHED', $5, NOW())
        ON CONFLICT (id) DO NOTHING`,
-      [id, player1Id, player2Id, board, winnerId]
+      [id, player1Id, player2Id, JSON.stringify(board), winnerId]
     );
   }
 }

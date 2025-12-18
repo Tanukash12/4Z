@@ -7,6 +7,8 @@ const statusEl = document.getElementById("status");
 export function renderBoard() {
   boardEl.innerHTML = "";
 
+  boardEl.style.pointerEvents = GameState.isMyTurn ? "auto" : "none";
+
   for (let row = 0; row < 6; row++) {
     for (let col = 0; col < 7; col++) {
       const cell = document.createElement("div");
@@ -19,11 +21,28 @@ export function renderBoard() {
         );
       }
 
-      cell.onclick = () => sendMove(col);
+      
       boardEl.appendChild(cell);
     }
   }
+
+ 
+  for (let col = 0; col < 7; col++) {
+  for (let row = 0; row < 6; row++) {
+    const index = row * 7 + col;
+    const cell = boardEl.children[index];
+
+    cell.onclick = () => {
+      if (GameState.isMyTurn) {
+        sendMove(col);
+      }
+    };
+  }
 }
+
+}
+
+
 
 export function showStatus(message) {
   statusEl.innerText = message;

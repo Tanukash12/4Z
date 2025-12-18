@@ -1,7 +1,8 @@
-import { v4 as uuidv4 } from "uuid";
 import GameService from "./GameService.js";
 import BotService from "./BotService.js";
+import Player from "../models/Player.js";
 import { MATCH_TIMEOUT, BOT } from "../utils/constants.js";
+import { v4 as uuidv4 } from "uuid";
 
 class MatchmakingService {
   constructor(send) {
@@ -10,8 +11,16 @@ class MatchmakingService {
     this.send = send;
   }
 
-  join(ws, username) {
-    const player = { id: uuidv4(), username, ws };
+  async join(ws, username) {
+    // 🔴 ENSURE PLAYER EXISTS IN DB
+    const dbPlayer = await Player.findOrCreate(username, "HUMAN");
+
+    const player = {
+      id: dbPlayer.id,      // ✅ DB ID
+      username: dbPlayer.username,
+      ws,
+      isBot: false,
+    };
 
     if (!this.waitingPlayer) {
       this.waitingPlayer = player;
@@ -34,7 +43,7 @@ class MatchmakingService {
 
   createGame(p1, p2) {
     return {
-      id: uuidv4(),
+      id: uuidv4(), // game id is fine
       players: [p1, p2],
       board: GameService.createBoard(),
       currentTurn: p1.id,
@@ -42,10 +51,18 @@ class MatchmakingService {
     };
   }
 
-  startBotGame(player) {
-    const bot = { id: uuidv4(), username: BOT.NAME, isBot: true };
+  async startBotGame(player) {
+    // 🔴 ENSURE BOT EXISTS IN DB
+    const botDb = await Player.findOrCreate(BOT.NAME, "BOT");
+
+    const bot = {
+      id: botDb.id,      // ✅ DB ID
+      username: BOT.NAME,
+      isBot: true,
+    };
 
     const game = this.createGame(player, bot);
+
     this.send(player.ws, {
       type: "game_start",
       gameId: game.id,
