@@ -8,8 +8,14 @@ const kafka = new Kafka({
 
 const consumer = kafka.consumer({ groupId: "analytics-group" });
 
-await consumer.connect();
-await consumer.subscribe({ topic: "game-events" });
+try {
+  await consumer.connect();
+  await consumer.subscribe({ topic: "game-events" });
+} catch (err) {
+  console.warn("Kafka not running, consumer disabled");
+  process.exit(0);
+}
+
 
 console.log("📊 Analytics consumer running...");
 

@@ -2,7 +2,7 @@ import { GameState } from "./game.js";
 import { renderBoard, showStatus, showGameOver } from "./ui.js";
 
 export function connectSocket(username) {
-  const ws = new WebSocket("ws://localhost:5000");
+  const ws = new WebSocket("ws://127.0.0.1:5000");
   GameState.socket = ws;
   GameState.username = username;
 

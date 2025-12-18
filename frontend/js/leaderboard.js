@@ -1,5 +1,5 @@
 export async function loadLeaderboard() {
-  const res = await fetch("http://localhost:5000/api/leaderboard");
+  const res = await fetch("http://127.0.0.1:5000/api/leaderboard")
   const data = await res.json();
 
   const table = document.getElementById("leaderboard");
