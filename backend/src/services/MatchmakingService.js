@@ -5,11 +5,13 @@ import { MATCH_TIMEOUT, BOT } from "../utils/constants.js";
 import { v4 as uuidv4 } from "uuid";
 
 class MatchmakingService {
-  constructor(send) {
+  constructor(send, onGameStart) {
     this.waitingPlayer = null;
     this.timeout = null;
     this.send = send;
+    this.onGameStart = onGameStart; 
   }
+
 
   async join(ws, username) {
     // 🔴 ENSURE PLAYER EXISTS IN DB
@@ -25,8 +27,10 @@ class MatchmakingService {
     if (!this.waitingPlayer) {
       this.waitingPlayer = player;
 
-      this.timeout = setTimeout(() => {
-        this.startBotGame(player);
+      this.timeout = setTimeout(async () => {
+        const game = await this.startBotGame(player);
+          this.waitingPlayer = null;
+          this.onGameStart(game); // ⭐ tell socketServer
       }, MATCH_TIMEOUT);
 
       this.send(ws, { type: "waiting" });
@@ -69,6 +73,8 @@ class MatchmakingService {
       opponent: BOT.NAME,
       yourTurn: true,
     });
+
+     return game;
   }
 }
 

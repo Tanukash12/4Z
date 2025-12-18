@@ -29,7 +29,18 @@ const send = (ws, data) => {
  */
 export default function initWebSocket(server) {
   const wss = new WebSocketServer({ server });
-  const matchmaking = new MatchmakingService(send);
+  const matchmaking = new MatchmakingService(send, (game) => {
+    activeGames.set(game.id, game);
+
+    game.players.forEach((p) => {
+      if (p.ws) {
+        socketMeta.set(p.ws, {
+          gameId: game.id,
+          playerId: p.id,
+        });
+      }
+    });
+  });
 
   wss.on("connection", (ws) => {
     console.log("WebSocket connected");
@@ -174,29 +185,23 @@ export default function initWebSocket(server) {
           }
 
           /* SWITCH TURN */
-          const nextPlayer = game.players.find(p => p.id !== meta.playerId);
-          game.currentTurn = nextPlayer.id;
+            const nextPlayer = game.players.find(p => p.id !== meta.playerId);
 
-          game.players.forEach(p =>
-            p.ws && send(p.ws, {
-              type: "game_update",
-              board: game.board,
-              currentTurn: game.currentTurn,
-            })
-          );
+            /* ---------- BOT GAME ---------- */
+            if (nextPlayer.isBot) {
 
-          /* ---------- BOT MOVE ---------- */
-          if (nextPlayer.isBot) {
-            const botCol = BotService.getMove(
-              game,
-              nextPlayer.id,
-              meta.playerId
-            );
+              const botCol = BotService.getMove(
+                game,
+                nextPlayer.id,
+                meta.playerId
+              );
 
-            if (botCol !== null) {
-              GameService.dropDisc(game.board, botCol, nextPlayer.id);
+              if (botCol === null) return;
 
-              /* 🤖 BOT WIN */
+              setTimeout(async () => {
+                GameService.dropDisc(game.board, botCol, nextPlayer.id);
+
+              // 🤖 BOT WIN
               if (GameService.checkWin(game.board, nextPlayer.id)) {
                 game.status = "FINISHED";
 
@@ -210,21 +215,12 @@ export default function initWebSocket(server) {
 
                 await Player.incrementWin(nextPlayer.id);
 
-                try {
-                  await emitEvent("GAME_FINISHED", {
-                  gameId: game.id,
-                  winnerId: winner?.id ?? null,
-                  reason: "win",
-                });
-                } catch (e) {
-                  console.error("Kafka error:", e.message);
-                }
-
                 game.players.forEach(p =>
                   p.ws && send(p.ws, {
                     type: "game_over",
                     winner: nextPlayer.id,
                     board: game.board,
+                    reason: "win",
                   })
                 );
 
@@ -232,6 +228,7 @@ export default function initWebSocket(server) {
                 return;
               }
 
+              // 🔁 BACK TO HUMAN
               game.currentTurn = meta.playerId;
 
               game.players.forEach(p =>
@@ -241,8 +238,23 @@ export default function initWebSocket(server) {
                   currentTurn: game.currentTurn,
                 })
               );
+            }, 500); 
+              
+
+              return; // ⭐ VERY IMPORTANT
             }
-          }
+
+            /* ---------- HUMAN VS HUMAN ---------- */
+            game.currentTurn = nextPlayer.id;
+
+            game.players.forEach(p =>
+              p.ws && send(p.ws, {
+                type: "game_update",
+                board: game.board,
+                currentTurn: game.currentTurn,
+              })
+            );
+
 
         } catch (err) {
           send(ws, { type: "error", message: err.message });
