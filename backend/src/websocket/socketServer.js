@@ -86,133 +86,89 @@ export default function initWebSocket(server) {
       }
 
       /* ================= MAKE MOVE ================= */
-      if (data.type === "make_move") {
-        const meta = socketMeta.get(ws);
-        if (!meta) return;
+if (data.type === "make_move") {
+  const meta = socketMeta.get(ws);
+  if (!meta) return;
 
-        const game = activeGames.get(meta.gameId);
-        if (!game || game.status !== "ACTIVE") return;
+  const game = activeGames.get(meta.gameId);
+  if (!game || game.status !== "ACTIVE") return;
 
-        if (game.currentTurn !== meta.playerId) {
-          return send(ws, { type: "error", message: "Not your turn" });
-        }
 
-        /* ---------- HUMAN MOVE ---------- */
-        try {
-          GameService.dropDisc(game.board, data.column, meta.playerId);
 
-          //  Broadcast the human move IMMEDIATELY so the UI updates
+  // Turn verification
+  if (game.currentTurn !== meta.playerId) {
+    return send(ws, { type: "error", message: "Not your turn" });
+  }
+
+  try {
+    /* ---------- 1. PROCESS HUMAN MOVE ---------- */
+    GameService.dropDisc(game.board, data.column, meta.playerId);
+
+    
+    
+    // Kafka Analytics for move
+    try {
+      await emitEvent("MOVE_PLAYED", { gameId: game.id, playerId: meta.playerId, column: data.column });
+    } catch (e) { console.error("Kafka error:", e.message); }
+
+    /* 🏆 CHECK HUMAN WIN */
+    if (GameService.checkWin(game.board, meta.playerId)) {
+      return await finishGame(game, meta.playerId, "win");
+    }
+
+    /* 🤝 CHECK HUMAN DRAW */
+    if (GameService.checkDraw(game.board)) {
+      return await finishGame(game, null, "draw");
+    }
+
+    /* ---------- 2. HANDLE NEXT PLAYER / BOT ---------- */
+    const nextPlayer = game.players.find(p => p.id !== meta.playerId);
+
+    if (nextPlayer.isBot) {
+      game.currentTurn = nextPlayer.id;
+      
+      // Notify UI that it is now the Bot's turn
+      game.players.forEach(p =>
+        p.ws && send(p.ws, { type: "game_update", board: game.board, currentTurn: game.currentTurn })
+      );
+
+      const botCol = BotService.getMove(game, nextPlayer.id, meta.playerId);
+      if (botCol === null) return;
+
+      // Simulate Bot "Thinking"
+      setTimeout(async () => {
+  // 🛑 safety check
+  if (game.status !== "ACTIVE") return;
+
+  GameService.dropDisc(game.board, botCol, nextPlayer.id);
+
+  if (GameService.checkWin(game.board, nextPlayer.id)) {
+    return await finishGame(game, nextPlayer.id, "win");
+  }
+
+  if (GameService.checkDraw(game.board)) {
+    return await finishGame(game, null, "draw");
+  }
+
+  // 🔁 SWITCH BACK TO HUMAN (DON'T USE meta.playerId)
+  const human = game.players.find(p => !p.isBot);
+  game.currentTurn = human.id;
+
   game.players.forEach(p =>
     p.ws && send(p.ws, {
       type: "game_update",
       board: game.board,
-      currentTurn: null, // Set to null briefly to prevent double-clicks
+      currentTurn: game.currentTurn,
     })
   );
-
-          // 🔥 SEND HUMAN MOVE UPDATE IMMEDIATELY
-// game.players.forEach(p =>
-//   p.ws && send(p.ws, {
-//     type: "game_update",
-//     board: game.board,
-//     currentTurn: meta.playerId,
-//   })
-// );
-
-// Emit Kafka Move Event
-          try {
-            await emitEvent("MOVE_PLAYED", {
-              gameId: game.id,
-              playerId: meta.playerId,
-              column: data.column,
-            });
-          } catch (e) {
-            console.error("Kafka error:", e.message);
-          }
+}, 1000);
 
 
-          /* 🏆 HUMAN WIN */
-          if (GameService.checkWin(game.board, meta.playerId)) {
-            game.status = "FINISHED";
+      return; // Exit human block; bot logic continues in timeout
+    }
 
-            await Game.saveResult({
-              id: game.id,
-              player1Id: game.players[0].id,
-              player2Id: game.players[1].id,
-              board: game.board,
-              winnerId: meta.playerId,
-            });
-
-            await Player.incrementWin(meta.playerId);
-
-            try {
-              await emitEvent("GAME_FINISHED", {
-              gameId: game.id,
-              winnerId: meta.playerId,
-              reason: "win",
-            });
-            } catch (e) {
-              console.error("Kafka error:", e.message);
-            }
-            
-
-
-            game.players.forEach(p =>
-              p.ws && send(p.ws, {
-                type: "game_over",
-                winner: meta.playerId,
-                board: game.board,
-              })
-            );
-
-            activeGames.delete(game.id);
-            return;
-          }
-
-          /* 🤝 DRAW */
-          if (GameService.checkDraw(game.board)) {
-            game.status = "FINISHED";
-
-            await Game.saveResult({
-              id: game.id,
-              player1Id: game.players[0].id,
-              player2Id: game.players[1].id,
-              board: game.board,
-              winnerId: null,
-            });
-
-            try {
-              await emitEvent("GAME_FINISHED", {
-                gameId: game.id,
-                winnerId: null,
-                reason: "draw",
-              });
-            } catch (e) {
-              console.error("Kafka error:", e.message);
-            }
-
-            game.players.forEach(p =>
-              p.ws && send(p.ws, {
-                type: "game_over",
-                winner: null,
-                board: game.board,
-              })
-            );
-
-            activeGames.delete(game.id);
-            return;
-          }
-
-          
-
-          /* SWITCH TURN */
-            const nextPlayer = game.players.find(p => p.id !== meta.playerId);
-
-           if (nextPlayer.isBot) {
-    // ✅ FIX 2: Explicitly set the turn to bot
+    /* ---------- 3. HUMAN VS HUMAN TURN SWITCH ---------- */
     game.currentTurn = nextPlayer.id;
-
-    // Send a message so frontend knows Bot is "thinking"
     game.players.forEach(p =>
       p.ws && send(p.ws, {
         type: "game_update",
@@ -221,81 +177,48 @@ export default function initWebSocket(server) {
       })
     );
 
-  const botCol = BotService.getMove(game, nextPlayer.id, meta.playerId);
-    if (botCol === null) return;
+  } catch (err) {
+    send(ws, { type: "error", message: err.message });
+  }
+}
 
-    setTimeout(async () => {
-      // Perform bot move
-      GameService.dropDisc(game.board, botCol, nextPlayer.id);
+/**
+ * HELPER FUNCTION: Handle DB saves, Kafka alerts, and Socket notifications
+ * Paste this OUTSIDE of the initWebSocket function (at the bottom of your file)
+ */
+async function finishGame(game, winnerId, reason) {
+  game.status = "FINISHED";
+  
+  // Save result to DB
+  await Game.saveResult({
+    id: game.id,
+    player1Id: game.players[0].id,
+    player2Id: game.players[1].id,
+    board: game.board,
+    winnerId: winnerId,
+  });
 
-      // ✅ FIX 3: Check if Bot won inside the timeout
-      if (GameService.checkWin(game.board, nextPlayer.id)) {
-        game.status = "FINISHED";
+  if (winnerId) await Player.incrementWin(winnerId);
 
-        // ✅ KAFKA EVENT FOR BOT WIN
-          try {
-            await emitEvent("GAME_FINISHED", {
-              gameId: game.id,
-              winnerId: nextPlayer.id,
-              reason: "win",
-            });
-          } catch (e) { console.error("Kafka error:", e.message); }
-        
-        // ✅ PERSIST BOT WIN
-          await Game.saveResult({
-            id: game.id,
-            player1Id: game.players[0].id,
-            player2Id: game.players[1].id,
-            board: game.board,
-            winnerId: nextPlayer.id,
-          });
-          await Player.incrementWin(nextPlayer.id);
+  // Kafka Analytics
+  try {
+    await emitEvent("GAME_FINISHED", { gameId: game.id, winnerId, reason });
+  } catch (e) { console.error("Kafka error:", e.message); }
 
-        // Notify UI of Bot Win
-        game.players.forEach(p =>
-          p.ws && send(p.ws, {
-            type: "game_over", // This triggers the Win/Loss modal/text
-            winner: nextPlayer.id,
-            board: game.board,
-            reason: "win",
-          })
-        );
-        activeGames.delete(game.id);
-        return;
-      }
+  // 2. Notify BOTH players with the FINAL board
+  game.players.forEach(p => {
+    if (p.ws) {
+      send(p.ws, {
+        type: "game_over",
+        winner: winnerId,
+        board: game.board, // VERY IMPORTANT: Send the board here
+        reason: reason
+      });
+    }
+  });
 
-      // If no win, switch back to human
-      game.currentTurn = meta.playerId;
-      game.players.forEach(p =>
-        p.ws && send(p.ws, {
-          type: "game_update",
-          board: game.board,
-          currentTurn: game.currentTurn,
-        })
-      );
-    }, 1000);
-
-              
-
-              return; // ⭐ VERY IMPORTANT
-            }
-
-            /* ---------- HUMAN VS HUMAN ---------- */
-            game.currentTurn = nextPlayer.id;
-
-            game.players.forEach(p =>
-              p.ws && send(p.ws, {
-                type: "game_update",
-                board: game.board,
-                currentTurn: game.currentTurn,
-              })
-            );
-
-
-        } catch (err) {
-          send(ws, { type: "error", message: err.message });
-        }
-      }
+  activeGames.delete(game.id);
+}
 
       /* ================= RECONNECT ================= */
       if (data.type === "reconnect") {

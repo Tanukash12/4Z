@@ -7,6 +7,7 @@ const statusEl = document.getElementById("status");
 export function renderBoard() {
   boardEl.innerHTML = "";
 
+  // UI enable/disable based on turn
   boardEl.style.pointerEvents = GameState.isMyTurn ? "auto" : "none";
 
   for (let row = 0; row < 6; row++) {
@@ -21,26 +22,21 @@ export function renderBoard() {
         );
       }
 
-      
+      // ✅ ONLY TOP ROW HANDLES CLICK → column based move
+      if (row === 0) {
+        cell.onclick = () => {
+          if (!GameState.isMyTurn) return;
+
+          console.log("Sending move for column:", col);
+          sendMove(col);
+        };
+      }
+
       boardEl.appendChild(cell);
     }
   }
-
- 
-  for (let col = 0; col < 7; col++) {
-  for (let row = 0; row < 6; row++) {
-    const index = row * 7 + col;
-    const cell = boardEl.children[index];
-
-    cell.onclick = () => {
-      if (GameState.isMyTurn) {
-        sendMove(col);
-      }
-    };
-  }
 }
 
-}
 
 
 
@@ -51,7 +47,7 @@ export function showStatus(message) {
 export function showGameOver(winnerId, reason) {
   if (!winnerId) {
     showStatus("Game Draw!");
-  } else if (winnerId === GameState.playerId) {
+  } else if (winnerId == GameState.playerId) {
     showStatus("You Win 🎉");
   } else {
     showStatus("You Lose 😢");

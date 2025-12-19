@@ -1,3 +1,5 @@
+window.__TEST_CLICK = true;
+
 export const GameState = {
   socket: null,
   username: null,

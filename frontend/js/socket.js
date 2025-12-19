@@ -51,6 +51,7 @@ function handleSocketEvent(data) {
       break;
 
     case "game_over":
+      console.log("Game Over received:", data);
       GameState.board = data.board || GameState.board;
       GameState.isMyTurn = false; 
       renderBoard();
