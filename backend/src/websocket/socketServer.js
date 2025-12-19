@@ -125,6 +125,11 @@ if (data.type === "make_move") {
     const nextPlayer = game.players.find(p => p.id !== meta.playerId);
 
     if (nextPlayer.isBot) {
+
+      if (game.botThinking) return;
+game.botThinking = true;
+
+
       game.currentTurn = nextPlayer.id;
       
       // Notify UI that it is now the Bot's turn
@@ -135,33 +140,49 @@ if (data.type === "make_move") {
       const botCol = BotService.getMove(game, nextPlayer.id, meta.playerId);
       if (botCol === null) return;
 
+      
+
       // Simulate Bot "Thinking"
-      setTimeout(async () => {
-  // 🛑 safety check
-  if (game.status !== "ACTIVE") return;
+        setTimeout(async () => {
+    try {
+      if (!activeGames.has(game.id)) return;
+      if (game.status !== "ACTIVE") return;
 
-  GameService.dropDisc(game.board, botCol, nextPlayer.id);
+      GameService.dropDisc(game.board, botCol, nextPlayer.id);
 
-  if (GameService.checkWin(game.board, nextPlayer.id)) {
-    return await finishGame(game, nextPlayer.id, "win");
-  }
+      // 🔥 SEND UPDATE AFTER BOT MOVE
+      game.players.forEach(p =>
+        p.ws && send(p.ws, {
+          type: "game_update",
+          board: game.board,
+          currentTurn: nextPlayer.id,
+        })
+      );
 
-  if (GameService.checkDraw(game.board)) {
-    return await finishGame(game, null, "draw");
-  }
+      if (GameService.checkWin(game.board, nextPlayer.id)) {
+        return await finishGame(game, nextPlayer.id, "win");
+      }
 
-  // 🔁 SWITCH BACK TO HUMAN (DON'T USE meta.playerId)
-  const human = game.players.find(p => !p.isBot);
-  game.currentTurn = human.id;
+      if (GameService.checkDraw(game.board)) {
+        return await finishGame(game, null, "draw");
+      }
 
-  game.players.forEach(p =>
-    p.ws && send(p.ws, {
-      type: "game_update",
-      board: game.board,
-      currentTurn: game.currentTurn,
-    })
-  );
-}, 1000);
+      const human = game.players.find(p => !p.isBot);
+      game.currentTurn = human.id;
+
+      game.players.forEach(p =>
+        p.ws && send(p.ws, {
+          type: "game_update",
+          board: game.board,
+          currentTurn: game.currentTurn,
+        })
+      );
+
+    } finally {
+      // ✅ ALWAYS RESET FLAG
+      game.botThinking = false;
+    }
+  }, 1000);
 
 
       return; // Exit human block; bot logic continues in timeout
@@ -187,6 +208,8 @@ if (data.type === "make_move") {
  * Paste this OUTSIDE of the initWebSocket function (at the bottom of your file)
  */
 async function finishGame(game, winnerId, reason) {
+  if(game.status === "FINISHED") return ;
+
   game.status = "FINISHED";
   
   // Save result to DB

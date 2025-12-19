@@ -34,6 +34,7 @@ function handleSocketEvent(data) {
       GameState.playerId = data.playerId;
       GameState.opponent = data.opponent;
       GameState.isMyTurn = data.yourTurn;
+        GameState.currentTurn = data.yourTurn ? GameState.playerId : null;
       GameState.board = Array.from({ length: 6 }, () => Array(7).fill(null));
       showStatus(
           `You (${GameState.username}) vs ${data.opponent} — ${
@@ -44,11 +45,19 @@ function handleSocketEvent(data) {
       break;
 
     case "game_update":
-      GameState.board = data.board;
-      GameState.currentTurn = data.currentTurn;
-      GameState.isMyTurn = data.currentTurn === GameState.playerId;
-      renderBoard();
-      break;
+  GameState.board = data.board;
+  GameState.currentTurn = data.currentTurn;
+  GameState.isMyTurn = data.currentTurn === GameState.playerId;
+
+  renderBoard();
+
+  showStatus(
+    GameState.isMyTurn
+      ? "Your turn"
+      : `${GameState.opponent}'s turn`
+  );
+  break;
+
 
     case "game_over":
       console.log("Game Over received:", data);
