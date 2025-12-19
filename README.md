@@ -7,15 +7,13 @@ Supports **Human vs Human**, **Human vs Bot**, **Reconnect handling**, **Leaderb
 
 ## ✨ Features
 
-- 🔴 Real-time gameplay using WebSockets
-- 👥 Human vs Human matchmaking
-- 🤖 Human vs Bot fallback (auto after timeout)
-- 🔄 Reconnect support (30s grace period)
-- 🏆 Persistent leaderboard
-- 💾 Game persistence (PostgreSQL)
-- 📡 Kafka event streaming for analytics
-- 📱 Fully responsive UI (mobile / tablet / desktop)
-- 🎨 Smooth animations & clean UI
+- Real-time gameplay using WebSockets
+- Human vs Human matchmaking
+- Human vs Bot fallback (auto after timeout)
+- Reconnect support (30s grace period)
+- Persistent leaderboard
+- Game persistence (PostgreSQL)
+- Kafka event streaming for analytics
 
 ---
 
@@ -44,8 +42,8 @@ Join game + leaderboard
 
 ### Frontend
 - HTML5
-- CSS3 (Responsive + Animations)
-- Vanilla JavaScript (ES Modules)
+- CSS3 
+- Vanilla JavaScript 
 - WebSocket API
 
 ### Backend
@@ -118,5 +116,5 @@ This starts:
 }
 ```
 
-## Author 
+### Author 
 [@Tanukash12](https://github.com/Tanukash12)
