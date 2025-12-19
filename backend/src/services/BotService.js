@@ -1,42 +1,46 @@
 import GameService from "./GameService.js";
-import { COLS } from "../utils/constants.js";
+import { COLS, ROWS } from "../utils/constants.js";
 
 class BotService {
   static getMove(game, botId, humanId) {
-    // 1. Try winning move
+    // 1️⃣ Win if possible
     for (let col = 0; col < COLS; col++) {
-      const boardCopy = game.board.map(r => [...r]);
-      try {
-        GameService.dropDisc(boardCopy, col, botId);
-        if (GameService.checkWin(boardCopy, botId)) return col;
-      } catch {}
-    }
-
-    // 2. Block human win
-    for (let col = 0; col < COLS; col++) {
-      const boardCopy = game.board.map(r => [...r]);
-      try {
-        GameService.dropDisc(boardCopy, col, humanId);
-        if (GameService.checkWin(boardCopy, humanId)) return col;
-      } catch {}
-    }
-
-    // 3. Prefer center
-    const center = Math.floor(COLS / 2);
-    try {
-      GameService.dropDisc(game.board.map(r => [...r]), center, botId);
-      return center;
-    } catch {}
-
-    // 4. Fallback
-    for (let col = 0; col < COLS; col++) {
-      try {
-        GameService.dropDisc(game.board.map(r => [...r]), col, botId);
+      if (this.simulate(game.board, col, botId)) {
         return col;
-      } catch {}
+      }
+    }
+
+    // 2️⃣ Block human win
+    for (let col = 0; col < COLS; col++) {
+      if (this.simulate(game.board, col, humanId)) {
+        return col;
+      }
+    }
+
+    // 3️⃣ Prefer center
+    const order = [3, 2, 4, 1, 5, 0, 6];
+    for (let col of order) {
+      if (this.isValidMove(game.board, col)) {
+        return col;
+      }
     }
 
     return null;
+  }
+
+  static simulate(board, col, playerId) {
+    const copy = board.map(r => [...r]);
+    for (let row = ROWS - 1; row >= 0; row--) {
+      if (copy[row][col] === null) {
+        copy[row][col] = playerId;
+        return GameService.checkWin(copy, playerId);
+      }
+    }
+    return false;
+  }
+
+  static isValidMove(board, col) {
+    return board[0][col] === null;
   }
 }
 
