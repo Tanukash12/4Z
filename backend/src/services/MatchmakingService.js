@@ -70,6 +70,7 @@ class MatchmakingService {
     this.send(player.ws, {
       type: "game_start",
       gameId: game.id,
+      playerId: player.id,
       opponent: BOT.NAME,
       yourTurn: true,
     });

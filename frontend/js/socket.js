@@ -47,7 +47,8 @@ function handleSocketEvent(data) {
     case "game_update":
   GameState.board = data.board;
   GameState.currentTurn = data.currentTurn;
-  GameState.isMyTurn = data.currentTurn === GameState.playerId;
+  // GameState.isMyTurn = data.currentTurn === GameState.playerId;
+  GameState.isMyTurn = data.canMove;
 
   renderBoard();
 

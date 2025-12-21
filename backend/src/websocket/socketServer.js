@@ -134,7 +134,7 @@ game.botThinking = true;
       
       // Notify UI that it is now the Bot's turn
       game.players.forEach(p =>
-        p.ws && send(p.ws, { type: "game_update", board: game.board, currentTurn: game.currentTurn })
+        p.ws && send(p.ws, { type: "game_update", board: game.board, currentTurn: game.currentTurn,  canMove: p.id === game.currentTurn, })
       );
 
       const botCol = BotService.getMove(game, nextPlayer.id, meta.playerId);
@@ -156,6 +156,7 @@ game.botThinking = true;
           type: "game_update",
           board: game.board,
           currentTurn: nextPlayer.id,
+          canMove: false, 
         })
       );
 
@@ -175,6 +176,7 @@ game.botThinking = true;
           type: "game_update",
           board: game.board,
           currentTurn: game.currentTurn,
+          canMove: p.id === game.currentTurn,
         })
       );
 
@@ -195,6 +197,7 @@ game.botThinking = true;
         type: "game_update",
         board: game.board,
         currentTurn: game.currentTurn,
+        canMove: p.id === game.currentTurn,
       })
     );
 
