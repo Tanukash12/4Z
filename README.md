@@ -81,7 +81,7 @@ KAFKA_BROKER=localhost:9092
 
 # Running the project
 1. Start all services
-   - docker compose up -d
+   - docker compose up -d --build
 This starts:
 -Backend server
 -PostgreSQL
@@ -98,9 +98,10 @@ This starts:
 - Enter different usernames
 - First player waits, second joins → game starts
 - Take turns clicking columns
+- If one of the player leaves the game in between opponent will wait within timout(30sec) and if player do not rejoin then the opponent will win and player will get forfeited. 
 ### Human vs Bot
 - Join game alone
-- If no opponent joins within timeout → Bot joins automatically
+- If no opponent joins within timeout(10 sec) → Bot joins automatically
 
 ### 🏆 Leaderboard API
 - At : http://localhost:5000/api/leaderboard
