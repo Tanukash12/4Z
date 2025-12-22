@@ -40,6 +40,10 @@ Join game + leaderboard
 ### 🎥 Demo Video
 
 [Click here to watch the demo video](https://drive.google.com/file/d/1o_-P8TQcGVt_1uQKjQFc9X7_5r61SKtD/view?usp=sharing)
+Capture Sequence
+- Human v/s Human -> Game play
+- Human v/s Humam -> At the time of any of the player left game in b/w second players win after the timelimit(waitinf after 30 seconds)
+- Human v/s Bot
 
 
 ## 🏗️ Tech Stack
