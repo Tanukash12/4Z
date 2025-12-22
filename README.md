@@ -37,6 +37,10 @@ Join game + leaderboard
 ![Human vs Human](screenshots/human-human.png)
 
 ---
+### 🎥 Demo Video
+
+[Click here to watch the demo video](https://drive.google.com/file/d/1o_-P8TQcGVt_1uQKjQFc9X7_5r61SKtD/view?usp=sharing)
+
 
 ## 🏗️ Tech Stack
 
